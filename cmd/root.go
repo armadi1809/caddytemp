@@ -14,9 +14,7 @@ var rootCmd = &cobra.Command{
 				  love by spf13 and friends in Go.
 				  Complete documentation is available at https://gohugo.io/documentation/`,
 	Run: func(cmd *cobra.Command, args []string) {
-		for _, temp := range templates {
-			fmt.Println(temp.Label)
-		}
+		run()
 	},
 }
 
