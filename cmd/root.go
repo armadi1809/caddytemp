@@ -8,11 +8,10 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "hugo",
-	Short: "Hugo is a very fast static site generator",
-	Long: `A Fast and Flexible Static Site Generator built with
-				  love by spf13 and friends in Go.
-				  Complete documentation is available at https://gohugo.io/documentation/`,
+	Use:   "caddytemp",
+	Short: "caddytemp is a CLI tool to generate common Caddyfile configurations",
+	Long: `A CLI application helping with the generation of common Caddyfile configurations. A list of all available configs
+		can be found at https://caddyserver.com/docs/caddyfile/patterns`,
 	Run: func(cmd *cobra.Command, args []string) {
 		run()
 	},
