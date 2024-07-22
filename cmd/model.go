@@ -55,12 +55,13 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 }
 
 type model struct {
-	list             list.Model
-	choice           string
-	quitting         bool
-	step             int
-	selectedTemplate string
-	inputs           []textinput.Model
+	list                   list.Model
+	choice                 string
+	quitting               bool
+	step                   int
+	selectedTemplate       string
+	inputs                 []textinput.Model
+	selectedPlaceholderIdx int
 }
 
 func (m model) Init() tea.Cmd {
@@ -101,9 +102,33 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.inputs[i] = t
 					}
 					m.step += 1
+					m.selectedPlaceholderIdx = 0
 				}
 				return m, nil
 			case 1:
+				if (m.selectedPlaceholderIdx) == len(placeholdersData[m.selectedTemplate])-1 {
+					fileContent, ok := templates[m.selectedTemplate]
+					if !ok {
+						m.choice = "An unexpected error occurred."
+						return m, tea.Quit
+					}
+					f, err := os.Create("Caddyfile")
+					if err != nil {
+						m.choice = "An unexpected error occurred."
+						return m, tea.Quit
+					}
+					defer f.Close()
+					userInputs := []any{}
+					for _, inp := range m.inputs {
+						userInputs = append(userInputs, inp.Value())
+					}
+					_, err = f.WriteString(fmt.Sprintf(fileContent, userInputs...))
+					if err != nil {
+						m.choice = "An unexpected error occurred."
+						return m, tea.Quit
+					}
+					f.Sync()
+				}
 				return m, m.updateInputs(msg)
 				// fileContent, ok := templates[m.selectedTemplate]
 				// if !ok {
@@ -186,6 +211,7 @@ func run() {
 	l.Title = "Select a Cadddyfile template"
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
+	l.SetShowHelp(false)
 	l.Styles.Title = titleStyle
 	l.Styles.PaginationStyle = paginationStyle
 	l.Styles.HelpStyle = helpStyle
