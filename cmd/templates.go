@@ -1,8 +1,12 @@
 package cmd
 
+var placeholdersData = map[string][]string{
+	"Static Files": {"hostname"},
+}
+
 var templates map[string]string = map[string]string{
 
-	"Static Files": `example.com {
+	"Static Files": `%s {
 		root * /var/www
 		file_server
 	}`,

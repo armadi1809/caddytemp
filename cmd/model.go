@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 
@@ -85,7 +87,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, tea.Quit
 				}
 				defer f.Close()
-				_, err = f.WriteString(fileContent)
+				userInputs := []any{}
+				for _, placeholder := range placeholdersData[string(i)] {
+					fmt.Printf("Enter %s: ", placeholder)
+					reader := bufio.NewReader(os.Stdin)
+					line, err := reader.ReadString('\n')
+					if err != nil {
+						log.Fatal(err)
+					}
+					userInputs = append(userInputs, line)
+				}
+				_, err = f.WriteString(fmt.Sprintf(fileContent, userInputs...))
 				if err != nil {
 					m.choice = "An unexpected error occurred."
 					return m, tea.Quit
