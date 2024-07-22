@@ -173,7 +173,7 @@ func (m model) View() string {
 			b.WriteRune('\n')
 		}
 	}
-	return b.String()
+	return lipgloss.JoinVertical(lipgloss.Left, m.list.View(), b.String())
 }
 
 func run() {
