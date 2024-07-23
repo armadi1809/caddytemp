@@ -1,23 +1,25 @@
 package cmd
 
 var placeholdersData = map[string][]string{
-	"Static Files": {"hostname"},
+	"Static Files":               {"hostname", "root path"},
+	"Reverse proxy all requests": {"hostname", "reverse proxy hostname"},
+	"Reverse proxy nlu requests starting with a given path": {"hostname", "root path", "matching path", "reverse proxy hostname"},
 }
 
 var templates map[string]string = map[string]string{
 
 	"Static Files": `%s {
-		root * /var/www
+		root * %s
 		file_server
 	}`,
 
-	"Reverse proxy all requests": `example.com {
-	reverse_proxy localhost:5000
+	"Reverse proxy all requests": `%s {
+	reverse_proxy %s
 }`,
 
-	"Reverse proxy only requests starting with a given path": `example.com {
-	root * /var/www
-	reverse_proxy /api/* localhost:5000
+	"Reverse proxy only requests starting with a given path": `%s {
+	root * %s
+	reverse_proxy %s/* localhost:5000
 	file_server
 }`,
 

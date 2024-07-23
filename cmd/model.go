@@ -129,34 +129,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 					f.Sync()
 				}
-				return m, m.updateInputs(msg)
-				// fileContent, ok := templates[m.selectedTemplate]
-				// if !ok {
-				// 	m.choice = "An unexpected error occurred."
-				// 	return m, tea.Quit
-				// }
-				// f, err := os.Create("Caddyfile")
-				// if err != nil {
-				// 	m.choice = "An unexpected error occurred."
-				// 	return m, tea.Quit
-				// }
-				// defer f.Close()
-				// userInputs := []any{}
-				// for _, placeholder := range placeholdersData[m.selectedTemplate] {
-				// 	fmt.Printf("Enter %s: ", placeholder)
-				// 	reader := bufio.NewReader(os.Stdin)
-				// 	line, err := reader.ReadString('\n')
-				// 	if err != nil {
-				// 		log.Fatal(err)
-				// 	}
-				// 	userInputs = append(userInputs, line)
-				// }
-				// _, err = f.WriteString(fmt.Sprintf(fileContent, userInputs...))
-				// if err != nil {
-				// 	m.choice = "An unexpected error occurred."
-				// 	return m, tea.Quit
-				// }
-				// f.Sync()
+				m.selectedPlaceholderIdx += 1
+				cmds := make([]tea.Cmd, len(m.inputs))
+				for i := 0; i <= len(m.inputs)-1; i++ {
+					if i == m.selectedPlaceholderIdx {
+						// Set focused state
+						cmds[i] = m.inputs[i].Focus()
+						m.inputs[i].PromptStyle = focusedStyle
+						m.inputs[i].TextStyle = focusedStyle
+						continue
+					}
+					// Remove focused state
+					m.inputs[i].Blur()
+					m.inputs[i].PromptStyle = noStyle
+					m.inputs[i].TextStyle = noStyle
+				}
+				return m, tea.Batch(cmds...)
 			}
 
 			return m, tea.Quit
