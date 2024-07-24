@@ -22,7 +22,6 @@ var (
 	helpStyle         = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
 	quitTextStyle     = lipgloss.NewStyle().Margin(1, 0, 2, 4)
 	focusedStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
-	blurredStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	cursorStyle       = focusedStyle
 	noStyle           = lipgloss.NewStyle()
 )
@@ -83,70 +82,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			switch m.step {
 			case 0:
-				i, ok := m.list.SelectedItem().(item)
-				if ok {
-					m.selectedTemplate = string(i)
-					placeholders := placeholdersData[string(i)]
-					m.inputs = make([]textinput.Model, len(placeholders))
-					var t textinput.Model
-					for i := range m.inputs {
-						t = textinput.New()
-						t.Cursor.Style = cursorStyle
-						t.CharLimit = 32
-						t.Placeholder = placeholders[i]
-						if i == 0 {
-							t.Focus()
-							t.PromptStyle = focusedStyle
-							t.TextStyle = focusedStyle
-						}
-						m.inputs[i] = t
-					}
-					m.step += 1
-					m.selectedPlaceholderIdx = 0
-				}
+				m.initializeInputs()
 				return m, nil
 			case 1:
 				if (m.selectedPlaceholderIdx) == len(placeholdersData[m.selectedTemplate])-1 {
-					fileContent, ok := templates[m.selectedTemplate]
-					if !ok {
-						m.choice = "An unexpected error occurred."
-						return m, tea.Quit
-					}
-					f, err := os.Create("Caddyfile")
+					err := m.writeInputsToFile()
 					if err != nil {
-						m.choice = "An unexpected error occurred."
-						return m, tea.Quit
+						m.choice = err.Error()
 					}
-					defer f.Close()
-					userInputs := []any{}
-					for _, inp := range m.inputs {
-						userInputs = append(userInputs, inp.Value())
-					}
-					_, err = f.WriteString(fmt.Sprintf(fileContent, userInputs...))
-					if err != nil {
-						m.choice = "An unexpected error occurred."
-						return m, tea.Quit
-					}
-					f.Sync()
+					return m, tea.Quit
 				}
 				m.selectedPlaceholderIdx += 1
-				cmds := make([]tea.Cmd, len(m.inputs))
-				for i := 0; i <= len(m.inputs)-1; i++ {
-					if i == m.selectedPlaceholderIdx {
-						// Set focused state
-						cmds[i] = m.inputs[i].Focus()
-						m.inputs[i].PromptStyle = focusedStyle
-						m.inputs[i].TextStyle = focusedStyle
-						continue
-					}
-					// Remove focused state
-					m.inputs[i].Blur()
-					m.inputs[i].PromptStyle = noStyle
-					m.inputs[i].TextStyle = noStyle
-				}
+				cmds := m.updateModelInputs()
 				return m, tea.Batch(cmds...)
 			}
-
 			return m, tea.Quit
 		}
 	}
@@ -187,6 +136,73 @@ func (m model) View() string {
 		}
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, m.list.View(), b.String())
+}
+
+func (m *model) updateModelInputs() []tea.Cmd {
+	cmds := make([]tea.Cmd, len(m.inputs))
+	for i := 0; i <= len(m.inputs)-1; i++ {
+		if i == m.selectedPlaceholderIdx {
+			// Set focused state
+			cmds[i] = m.inputs[i].Focus()
+			m.inputs[i].PromptStyle = focusedStyle
+			m.inputs[i].TextStyle = focusedStyle
+			continue
+		}
+		// Remove focused state
+		m.inputs[i].Blur()
+		m.inputs[i].PromptStyle = noStyle
+		m.inputs[i].TextStyle = noStyle
+	}
+	return cmds
+}
+
+func (m *model) writeInputsToFile() error {
+	fileContent, ok := templates[m.selectedTemplate]
+	if !ok {
+		return fmt.Errorf("an unexpected error occurred")
+	}
+	f, err := os.Create("Caddyfile")
+	if err != nil {
+		return fmt.Errorf("an unexpected error occurred")
+	}
+	defer f.Close()
+	userInputs := map[string]string{}
+	for _, inp := range m.inputs {
+		userInputs[inp.Placeholder] = inp.Value()
+	}
+	for _, pl := range placeholdersData[m.selectedTemplate] {
+		fileContent = strings.ReplaceAll(fileContent, "{"+pl+"}", userInputs[pl])
+	}
+	_, err = f.WriteString(fileContent)
+	if err != nil {
+		return fmt.Errorf("an unexpected error occurred")
+	}
+	f.Sync()
+	return nil
+}
+
+func (m *model) initializeInputs() {
+	i, ok := m.list.SelectedItem().(item)
+	if ok {
+		m.selectedTemplate = string(i)
+		placeholders := placeholdersData[string(i)]
+		m.inputs = make([]textinput.Model, len(placeholders))
+		var t textinput.Model
+		for i := range m.inputs {
+			t = textinput.New()
+			t.Cursor.Style = cursorStyle
+			t.CharLimit = 32
+			t.Placeholder = placeholders[i]
+			if i == 0 {
+				t.Focus()
+				t.PromptStyle = focusedStyle
+				t.TextStyle = focusedStyle
+			}
+			m.inputs[i] = t
+		}
+		m.step += 1
+		m.selectedPlaceholderIdx = 0
+	}
 }
 
 func run() {

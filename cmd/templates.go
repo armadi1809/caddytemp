@@ -3,30 +3,40 @@ package cmd
 var placeholdersData = map[string][]string{
 	"Static Files":               {"hostname", "root path"},
 	"Reverse proxy all requests": {"hostname", "reverse proxy hostname"},
-	"Reverse proxy nlu requests starting with a given path": {"hostname", "root path", "matching path", "reverse proxy hostname"},
+	"Reverse proxy only requests starting with a given path": {"hostname", "root path", "matching path", "reverse proxy hostname"},
+	"PHP-FPM":    {"hostname", "root path", "fastcgi server address"},
+	"FrankenPHP": {"hostname", "root path"},
+	"Add www. subdomain with an HTTP redirect":                         {"hostname"},
+	"Remove www. subdomain with an HTTP redirect":                      {"hostname"},
+	"Remove www. subdomaing for multiple domains at once":              {"hostname 1", "hostname 2"},
+	"Remove trailing slashes internally (using the rewrite directive)": {"hostname"},
+	"Remove trailing slashes externally (using the redir directive)":   {"hostname"},
+	"Serve multiple subdomains with the same wildcard certificate":     {"hostname", "subdomain 1", "subdomain 2"},
+	"Single-Page Application (SPA) with no backend":                    {"hostname", "root path"},
+	"Single-Page Application (SPA) with a backend api":                 {"hostname", "backend base address", "root path"},
 }
 
 var templates map[string]string = map[string]string{
 
-	"Static Files": `%s {
-		root * %s
+	"Static Files": `{hostname} {
+		root * {root path}
 		file_server
-	}`,
-
-	"Reverse proxy all requests": `%s {
-	reverse_proxy %s
 }`,
 
-	"Reverse proxy only requests starting with a given path": `%s {
-	root * %s
-	reverse_proxy %s/* localhost:5000
+	"Reverse proxy all requests": `{hostname} {
+	reverse_proxy {reverse proxy hostname}
+}`,
+
+	"Reverse proxy only requests starting with a given path, and serve static files otherwise": `{hostname} {
+	root * {root path}
+	reverse_proxy {matching path}/* {reverse proxy hostname}
 	file_server
 }`,
 
-	"PHP-FPM": `example.com {
-	root * /srv/public
+	"PHP-FPM": `{hostname} {
+	root * {root path}
 	encode gzip
-	php_fastcgi localhost:9000
+	php_fastcgi {fastcgi server address}
 	file_server
 }`,
 
@@ -35,57 +45,56 @@ var templates map[string]string = map[string]string{
     order php_server before file_server
 }
 
-example.com {
-	root * /srv/public
+{hostnmae} {
+	root * {root path}
     encode zstd br gzip
     php_server
-}
-`,
+}`,
 
-	"Add www. subdomain with an HTTP redirect": `example.com {
+	"Add www. subdomain with an HTTP redirect": `{hostname} {
 	redir https://www.{host}{uri}
 }
 
-www.example.com {
+www.{hostname} {
 }`,
 
-	"Remove www. subdomain with an HTTP redirect": `www.example.com {
-	redir https://example.com{uri}
+	"Remove www. subdomain with an HTTP redirect": `www.{hostname} {
+	redir https://{hostname}{uri}
 }
 
 example.com {
 }`,
 
-	"Remove www. subdomaing for multiple domains at once": `www.example-one.com, www.example-two.com {
+	"Remove www. subdomaing for multiple domains at once": `www.{hostname 1}, www.{hostname 2} {
 	redir https://{labels.1}.{labels.0}{uri}
 }
 
-example-one.com, example-two.com {
+{hostname 1}, {hostname 2} {
 }`,
 
-	"Remove trailing slashes internally (using the rewrite directive)": `example.com {
+	"Remove trailing slashes internally (using the rewrite directive)": `{hostname} {
 	rewrite /add     /add/
 	rewrite /remove/ /remove
 }`,
 
-	"Remove trailing slashes externally (using the redir directive)": `example.com {
+	"Remove trailing slashes externally (using the redir directive)": `{hostname} {
 	redir /add     /add/
 	redir /remove/ /remove
 }`,
 
-	"Serve multiple domains with the same wildcard certificate": `*.example.com {
+	"Serve multiple subdomains with the same wildcard certificate": `*.{hostname} {
 	tls {
 		dns <provider_name> [<params...>]
 	}
 
-	@foo host foo.example.com
-	handle @foo {
-		respond "Foo!"
+	@{subdomain 1} host {subdomain 1}.example.com
+	handle @{subdomain 1} {
+		respond "{subdomain 1}!"
 	}
 
-	@bar host bar.example.com
-	handle @bar {
-		respond "Bar!"
+	@{subdomain 2} host {subdomain 2}.example.com
+	handle @{subdomain 2} {
+		respond "{subdomain 2}!"
 	}
 
 	# Fallback for otherwise unhandled domains
@@ -94,42 +103,42 @@ example-one.com, example-two.com {
 	}
 }`,
 
-	"Single-Page Application (SPA) with no backend": `example.com {
-	root * /srv
+	"Single-Page Application (SPA) with no backend": `{hostname} {
+	root * {root path}
 	encode gzip
 	try_files {path} /index.html
 	file_server
 }`,
 
-	"Single-Page Application (SPA) with a backend api": `example.com {
+	"Single-Page Application (SPA) with a backend api": `{hostname} {
 	encode gzip
 
-	handle /api/* {
+	handle {backend base address}* {
 		reverse_proxy backend:8000
 	}
 
 	handle {
-		root * /srv
+		root * {root path}
 		try_files {path} /index.html
 		file_server
 	}
 }`,
 
-	"Caddy proxying to another Caddy (Front instance)": `foo.example.com, bar.example.com {
-	reverse_proxy 10.0.0.1:80
-}`,
+	// 	"Caddy proxying to another Caddy (Front instance)": `foo.{hostname}, bar.{hostname} {
+	// 	reverse_proxy {reverse proxy address}
+	// }`,
 
-	"Caddy proxying to another Caddy (Back instance)": `{
-	servers {
-		trusted_proxies static private_ranges
-	}
-}
+	// 	"Caddy proxying to another Caddy (Back instance)": `{
+	// 	servers {
+	// 		trusted_proxies static private_ranges
+	// 	}
+	// }
 
-http://foo.example.com {
-	reverse_proxy foo-app:8080
-}
+	// http://foo.example.com {
+	// 	reverse_proxy foo-app:8080
+	// }
 
-http://bar.example.com {
-	reverse_proxy bar-app:9000
-}`,
+	//	http://bar.example.com {
+	//		reverse_proxy bar-app:9000
+	//	}`,
 }
