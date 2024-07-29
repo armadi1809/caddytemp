@@ -20,7 +20,6 @@ var (
 	selectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170"))
 	paginationStyle   = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
 	helpStyle         = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
-	quitTextStyle     = lipgloss.NewStyle().Margin(1, 0, 2, 4)
 	focusedStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 	cursorStyle       = focusedStyle
 	noStyle           = lipgloss.NewStyle()
@@ -55,8 +54,7 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 
 type model struct {
 	list                   list.Model
-	choice                 string
-	quitting               bool
+	message                string
 	step                   int
 	selectedTemplate       string
 	inputs                 []textinput.Model
@@ -76,7 +74,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch keypress := msg.String(); keypress {
 		case "q", "ctrl+c":
-			m.quitting = true
 			return m, tea.Quit
 
 		case "enter":
@@ -85,17 +82,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.initializeInputs()
 				return m, nil
 			case 1:
+				var cmds []tea.Cmd
 				if (m.selectedPlaceholderIdx) == len(placeholdersData[m.selectedTemplate])-1 {
 					err := m.writeInputsToFile()
 					if err != nil {
-						m.choice = err.Error()
+						m.message = err.Error()
 					}
-					return m, tea.Quit
+					m.message = "Caddyfile generated!"
+					m.selectedPlaceholderIdx += 1
+					cmds = append(m.updateModelInputs(), tea.Quit)
+					return m, tea.Sequence(cmds...)
 				}
 				m.selectedPlaceholderIdx += 1
-				cmds := m.updateModelInputs()
+				cmds = m.updateModelInputs()
 				return m, tea.Batch(cmds...)
 			}
+
 			return m, tea.Quit
 		}
 	}
@@ -121,19 +123,13 @@ func (m model) View() string {
 	if m.step == 0 {
 		return "\n" + m.list.View()
 	}
-	if m.choice != "" {
-		return quitTextStyle.Render(fmt.Sprintf("Generating Caddyfile: %s", m.choice))
-	}
-	if m.quitting {
-		return quitTextStyle.Render("Quitting...")
-	}
 	var b strings.Builder
-
 	for i := range m.inputs {
 		b.WriteString(m.inputs[i].View())
-		if i < len(m.inputs)-1 {
-			b.WriteRune('\n')
-		}
+		b.WriteRune('\n')
+	}
+	if m.message != "" {
+		return lipgloss.JoinVertical(lipgloss.Left, m.list.View(), b.String(), m.message+"\n")
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, m.list.View(), b.String())
 }

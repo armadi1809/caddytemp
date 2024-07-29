@@ -45,7 +45,7 @@ var templates map[string]string = map[string]string{
     order php_server before file_server
 }
 
-{hostnmae} {
+{hostname} {
 	root * {root path}
     encode zstd br gzip
     php_server
