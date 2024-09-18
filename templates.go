@@ -1,4 +1,4 @@
-package cmd
+package main
 
 var placeholdersData = map[string][]string{
 	"Static Files":               {"hostname", "root path"},
